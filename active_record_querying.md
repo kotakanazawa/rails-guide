@@ -1,3 +1,5 @@
+[Active Record クエリインターフェイス \- Railsガイド](https://railsguides.jp/active_record_querying.html)
+
 ## Active Recordの役割
 - DBにクエリを発行してオブジェクトを取り出す
 
@@ -96,7 +98,7 @@ Client.find_by first_name:'hoge'
 ```ruby
 Client.where(first_name: 'hoge').take
 ```
-
+ggkkkkk
 SQL
 
 ```sql
