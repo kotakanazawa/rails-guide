@@ -125,4 +125,110 @@ end
 - find_in_batches
   - レコードのバッチを1つ取り出し、バッチ全体をモデルの配列としてブロックにyieldする
 
-TODO: 調べる「yieldするとは？」
+### find_each
+
+複数のレコードを一括で取り出し、続いて各レコードを1つのブロックにyieldする。
+
+```ruby
+User.find_each do |user|
+  NewsMailer.weekly(user).deliver_now
+end
+```
+
+対象を絞ることもできる。
+
+```ruby
+User.where(weekly_subscriber: true).find_each do |user|
+  NewsMailer.weekly(user).deliver_now
+end
+```
+`weekly_subscriber`がtrueの人だけにメールを送るバッチ処理。ただしこれは順序指定がない場合に限る。
+
+オプションいろいろ。
+
+`batch_size`オプションは、ブロックに個別に渡される前に1回のバッチで取り出すレコード数を指定する。1回に5000件ずつ処理したい場合はこちら。
+
+```ruby
+User.find_each(batch_size: 5000) do |user|
+  NewsMailer.weekly(user).deliver_now
+end
+```
+
+たとえば主キーが2000番以降のユーザーにたいしてメールを送る場合。`start`が使える。
+
+```ruby
+User.find_each(start: 2000) do |user|
+  NewsMailer.weekly(user).deliver_now
+end
+```
+
+終わりを指定したい場合は`finish`が使える。
+
+
+```ruby
+User.find_each(start: 2000, finish: 10000) do |user|
+  NewsMailer.weekly(user).deliver_now
+end
+```
+
+### find_in_batches
+
+`find_each`との違いは、`find_in_batches`はバッチを個別にではなくモデルの配列としてブロックにyieldするところ。
+
+```ruby
+# 1回あたりadd_invoicesに納品書1000通の配列を渡す
+Invoice.find_in_batches do |invoices|
+  export.add_invoices(invoices)
+end
+```
+
+オプションは`find_each`と同じオプションが使える。
+
+## 条件
+
+### where
+
+条件は、文字列、配列、ハッシュのいずれかの方法で与えることができる。ただし、条件を文字列だけで構成すると、SQLインジェクション脆弱性が発生する可能性がある。
+
+数値が変動する場合、このように書く。
+
+```ruby
+Client.where("orders_count = ?", params[:orders])
+```
+
+?（疑問符）に対応するのが`params[:orders]`
+
+ちなみにこんな書き方は絶対にダメ。
+
+```ruby
+Client.where("orders_count = #{params[:orders]}")
+```
+
+変数を直接置くと、DBにそのまま渡される。悪意ある人物がエスケープされていない危険な変数を仕込むことができてしまう。
+
+`キー/値`のハッシュを渡すことができる。
+
+```ruby
+Client.where("created_at >= :start_date AND created_at <= :end_date",
+  {start_date: params[:start_date], end_date: params[:end_date]})
+```
+
+疑問符ではなく、`:start_date`を渡して引数で該当する変数をセットする。こちらのほうが可読性が高い。
+
+### ハッシュを使用した条件
+
+可読性が高い。
+
+```ruby
+Client.where(locked: true)
+```
+
+こんなふうに範囲を指定することもできる。これは実務で使いそうな感じある。
+
+```ruby
+Client.where(created_at: (Time.now.midnight - 1.day)..Time.now.midnight)
+```
+
+昨日作成されたすべてのクライアントを検索している。
+
+
